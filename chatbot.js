@@ -21,11 +21,6 @@ const sendButton = document.getElementById("send-button"); // The send button
 const genAI = new GoogleGenerativeAI(API_KEY);
 let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || []; // Load chat history from local storage
 let messages = []
-
-let md = new MarkdownIt({
-  linkify: true,
-  typographer: true,
-});
     const model = genAI.getGenerativeModel({
       model: "gemini-pro", // or gemini-1.5-pro
       safetySettings: [
@@ -46,13 +41,13 @@ let md = new MarkdownIt({
 // Create new chat and saving the previous one to history
 function startNewChat() {
   // Clear the current chat messages
-  chatMessages.innerHTML = `<div class="chatbot-message bot-message">Hello! How can I assist you today? What would you like to ask?" </div>`;
+  chatMessages.innerHTML = `<div class="chatbot-message bot-message">Dok: Hello! How can I assist you today? What would you like to ask?" </div>`;
 
   // Create a new chat
   const newChat = {
       id: Date.now(),
       messages: [
-          { sender: "bot", message: "Hello! How can I assist you today? What would you like to ask?" }
+          { sender: "bot", message: "Dok: Hello! How can I assist you today? What would you like to ask?" }
       ]
   };
 
@@ -96,8 +91,7 @@ function loadChat(index) {
   selectedChat.messages.forEach(msg => {
       const messageDiv = document.createElement("div");
       messageDiv.classList.add(`${msg.sender}-message`);
-      const name = msg.sender === 'bot' ? 'Dok' : 'You'; 
-      messageDiv.innerHTML = `<b>${name}: </b>` + md.render(msg.message);
+      messageDiv.innerText = msg.message;
       chatMessages.appendChild(messageDiv);
   });
   // Change color for the active chat in the sidebar (highlight the current chat)
@@ -135,8 +129,7 @@ function updateActiveHistoryItem() {
       sendButton.classList.add('disabled');
       newChatButton.classList.add('disabled');
       clearHistoryButton.classList.add('disabled');
-      userInputBox.classList.add('disabled');
-
+      chatMessages.scrollTop = chatMessages.scrollHeight;
 
       const userInput = promptInput.value;
       const selectedChat = chatHistory[currentChatIndex];
@@ -146,10 +139,11 @@ function updateActiveHistoryItem() {
           messages += msg.message;
           });
 
-      output.innerHTML += `<div class="user-message" id="user-message"><b>You:</b><br>${userInput}</div>`;
+      // Save the updated chat history to local storage
+      output.innerHTML += `<div class="user-message" id="user-message"><b>You:</b> ${userInput}</div>`;
 
       
-      const userMessage = { sender: "user", message: userInput};
+      const userMessage = { sender: "user", message: "You: " + userInput};
 
       //save the user input to current chat index history
       chatHistory[currentChatIndex].messages.push(userMessage);
@@ -159,11 +153,13 @@ function updateActiveHistoryItem() {
       output.innerHTML += '<div class="generating-message">Dok is Thinking...</div>';
     
       try {
-          chatMessages.scrollTop = chatMessages.scrollHeight;
 
-          const result = await chat.sendMessageStream(bot_prompt + 'You are to use the context i give you to answer the Patient Message. However, do not repeat any context that has no relation to the Patient Message.' + 'Context(not to be printed):' +'['+ messages + ']' + 'Patient Message(not to be printed):' + promptInput.value + 'give a proper and professional response. Only use * if you were to make a list.');
+          const result = await chat.sendMessageStream(bot_prompt + 'read this previous conversation:' + messages + 'Answer this question based on the previous conversation if there is context in the previous information. If not just answer the question:' + promptInput.value + 'give a proper response');
     
-        
+        let md = new MarkdownIt({
+          linkify: true,
+          typographer: true,
+        }).disable(['emphasis']);;
     
         // Custom Markdown rule to reduce paragraph spacing (if needed)
         md.renderer.rules.paragraph_open = function (tokens, idx) {
@@ -175,6 +171,7 @@ function updateActiveHistoryItem() {
         botResponseDiv.classList.add('bot-message', 'bot-message-right');
     
         // Add the "Bot:" prefix
+        botResponseDiv.innerHTML = '<b>Dok:</b> ';
     
         output.appendChild(botResponseDiv); // Append the div to the output
     
@@ -185,20 +182,20 @@ function updateActiveHistoryItem() {
 
         // Gradually reveal text
         async function revealText(content) {
-          let tempText = '';
           for (let i = 0; i < content.length; i++) {
-            tempText += content[i];
-            // Render Markdown using md and update display
-            botResponseDiv.innerHTML = '<b>Dok: </b>' + md.render(tempText); 
-            await new Promise((resolve) => setTimeout(resolve, 30));
+            botResponseDiv.innerHTML += content[i];
+            await new Promise((resolve) => setTimeout(resolve, 30)); // Adjust speed here
+
           }
         }
+
+
         // Reveal bot response text
         await revealText(fullResponse);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         output.innerHTML += `</div>`;
-        const botMessageObj = { sender: "bot", message: fullResponse };
+        const botMessageObj = { sender: "bot", message: botResponseDiv.textContent };
         chatHistory[currentChatIndex].messages.push(botMessageObj);
         localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
 
@@ -218,8 +215,6 @@ function updateActiveHistoryItem() {
       sendButton.classList.remove('disabled');
       newChatButton.classList.remove('disabled');
       clearHistoryButton.classList.remove('disabled'); 
-      userInputBox.classList.remove('disabled');
-
       //empty the input   
       promptInput.value = ''; 
       location.reload()
