@@ -37,20 +37,39 @@
                   <!-- History items will be dynamically added here -->
               </div>
           </div>
+          <div id="vertical-divider"></div>
 
           <!-- Chat Messages -->
+          <div id="chat-container">
           <div id="chat-messages" class="output">
               <!-- Bot response -->
               <div class="chatbot-message bot-message"><b>Dok: </b><br>Hello! How can I assist you today? What would you like to ask?</div>
+            
           </div>
+            <button id="scroll-down">|</button>
+            <div id="super-container" class="super-container">
+                <div class="text-container"><h2>Don't Know What to Ask?</h2></div>
+                <div class="prompt-container">
+                    <button class="prompts" id="prompt1">I've been feeling really tired lately. Could it be something serious?
+                    </button>
+                    <button class="prompts" id="prompt2">I have a headache that won't go away. What should I do?
+                    </button>
+                    <button class="prompts" id="prompt3">How can I improve my overall health and fitness?
+                    </button>
+                    <button id="close"><h4>X</h4></button>
+                </div>
+            </div>
+        </div>
       </div>
 
       <!-- Chat Input Section -->
       <div class="chat-input-container">
           <input type="text" name="prompt" id="user-input" placeholder="Type your question here..." /> <!-- Added name="user-input" -->
           <button id="send-button" class="pre-button">Send</button>
+          <button id="stop-button" class="pre-button hidden">Stop</button>
+          <button id="show-prompts" class="hidden">?</button>
       </div>
   </div>
-  <script type="module" src="/main.js"></script>
+  <script type="module" src="/main.js" defer></script>
 </body>
 </html>

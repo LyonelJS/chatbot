@@ -193,7 +193,7 @@ nav:hover{
     color: #fff;
 }
 
-#chat-messages {
+#chat-container {
     flex-grow: 1;
     padding: 20px;
     background-color: #fff;
@@ -204,7 +204,21 @@ nav:hover{
     flex-direction: column;
     overflow-y: auto;
     height: calc(100vh - 190px);
+    scroll-behavior: smooth; /* This enables smooth scrolling */
+
 }
+#chat-messages {
+    display: flex;
+    flex-direction: column;
+}
+
+#vertical-divider {
+    width: 5px;
+    background-color: #ccc;
+    cursor: col-resize;
+    height: 100%; /* Adjust as needed */
+    position: relative; /* Necessary for positioning calculations */
+  }
 
 .bot-message {
     background-color: #007bff;
@@ -256,7 +270,97 @@ nav:hover{
     transition: background-color 0.3s ease;
 }
 
+#stop-button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.hidden {
+    display:none;
+}
+
+#scroll-down{
+    background-color: #ccc;
+    color: black;
+    width: 30px;
+    height: 30px;
+    border-radius:30px;
+    margin-left: 30%;
+    margin-top: 30%;
+    position:fixed;
+    z-index: 10;
+}
+.super-container{
+    background-color:#fff;
+    color:black;
+    position:fixed;
+    height: 15%;
+    border-radius:10px;
+    border: 2px solid black;
+    width:66%;
+    margin-top: 25%;
+    transition: opacity 0.2s ease;
+    opacity:1;
+}
+.invisible{
+    opacity:0;
+}
+.text-container{
+    justify-content:center;
+    place-items:center;
+}
+.prompt-container{
+    display:flex;
+    justify-content:center;
+    place-items:center;
+    height: 70%;
+}
+.prompts{
+    width: 30%;
+    height: 80%;
+    margin: 5px;
+    border: 2px dashed black;
+    border-radius: 10px;
+    padding: 1%;
+    transition: background-color 0.3s ease;
+
+}
+
+.prompts:hover{
+    background-color: lightgray;
+}
+#close{
+    width:2%;
+    height:40%;
+    border:none;
+    background-color:white;
+    margin-bottom:8%;
+    transition: background-color 0.3s ease;
+}
+
+#close:hover{
+    color: #007bff;
+}
+
 #send-button:hover {
+    background-color: #0056b3;
+}
+
+#show-prompts{
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+#show-prompts:hover {
     background-color: #0056b3;
 }
 
@@ -264,7 +368,14 @@ nav:hover{
     nav {
         display: none;
     }
-
+    #vertical-divider {
+        width: 100%;
+        height: 5px; /* Adjust height as needed */
+        cursor: ns-resize; /* Change cursor to vertical resize */
+        margin: 0; /* Remove any margins if present */
+        display: none;
+      }
+    
     .history-sidebar {
         width: 100%;
         height: 20vh;
@@ -299,9 +410,14 @@ nav:hover{
         flex-direction: column;
     }
 
-    #chat-messages {
+    #chat-container {
         padding: 10px;
         height:50vh
+    }
+
+    #scroll-down{
+        margin-left: 35%;
+        margin-top: 110%;
     }
 
     .pre-button, .next-button {
@@ -320,4 +436,39 @@ nav:hover{
     .icons {
         font-size: medium;
     }
+    .super-container{
+        width:200px;
+        margin-top: 90%;
+        padding:1%;
+    }
+    .prompt-container{
+        flex-direction:column;
+        width: 100%;
+        margin-top: 4%;
+    }
+    .prompts{
+        width:100%;
+    }
+    #close{
+        margin-bottom:30%;
+        position:fixed;
+        height:2%;
+        margin-left:75%;
+    }
+    @media (max-height: 800px) {
+        .super-container{
+            height:12vh;
+            overflow:hidden;
+            margin-top:80%;
+        }
+        .prompt-container{
+            height:auto;
+            overflow-y:auto;
+        }
+        .text-container{
+            height: auto;
+        }
+    }
+    
 }
+

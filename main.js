@@ -10,6 +10,7 @@ let API_KEY = 'AIzaSyD__WGbiXsXPP3spsIT-Cn6SROw6rBpk_Y';
 
 let promptInput = document.querySelector('input[name="prompt"]');
 let output = document.querySelector('.output');
+let stop = false
 // ID elements from HTML
 const bot_prompt = 'You are a bot that is to be a professional doctor. You are called "Dok", you dont have to introduce yourself every time you answer, just the first time. So, answer anything as if you were treating a patient. Ask one follow up question about what the user(patient) is asking. Once there is enough information, give advice. Also give disclaimers that any advice you give should be re-consulted to a doctor. You only do disclaimer when you give advice and you always put it in the last.'
 const chatMessages = document.getElementById("chat-messages"); // The chat messages div
@@ -18,9 +19,85 @@ const historyContainer = document.getElementById("history"); // The history side
 const newChatButton = document.getElementById("new-chat"); // The new chat button
 const clearHistoryButton = document.getElementById("clear-history"); // The clear history button
 const sendButton = document.getElementById("send-button"); // The send button
+const stopButton = document.getElementById("stop-button"); // The send button
+const scrollButton = document.getElementById('scroll-down');
+const prompt1Button = document.getElementById('prompt1');
+const prompt2Button = document.getElementById('prompt2');
+const prompt3Button = document.getElementById('prompt3');
+const closeButton = document.getElementById('close');
+const showPromptButton = document.getElementById('show-prompts');
+const promptContainer = document.getElementById('super-container')
+
 const genAI = new GoogleGenerativeAI(API_KEY);
 let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || []; // Load chat history from local storage
-let messages = []
+let messages = [];
+
+const divider = document.getElementById('vertical-divider');
+const chatContainer = document.getElementById('chat-container');
+const historySideBar = document.getElementById('history-sidebar');
+let isDragging = false;
+let initialX;
+let initialWidth;
+
+
+// Load chatContainer width from local storage or default
+let chatContainerWidth = parseInt(localStorage.getItem('chatContainerWidth')) || chatContainer.offsetWidth; 
+
+// Apply saved width on page load
+chatContainer.style.width = `${chatContainerWidth}px`;
+historySideBar.style.width = `calc(100% - ${chatContainerWidth}px - 5px)`; // Adjust for divider width
+promptContainer.style.width = `calc(${chatContainerWidth}px - 5%)`;
+
+
+divider.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  initialX = e.clientX;
+  initialWidth = chatContainer.offsetWidth;
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+
+  const offsetX = e.clientX - initialX;
+  const newWidth = initialWidth - offsetX;
+
+  chatContainer.style.width = `${newWidth}px`;
+  historySideBar.style.width = `calc(100% - ${newWidth}px - 5px)`; // Adjust for divider width
+  scrollButton.style.marginLeft = `calc(${newWidth}px/2 - 2%)`; // Adjust for divider width
+  promptContainer.style.width = `calc(${newWidth}px - 5%)`;
+
+  // Save the new width to local storage
+  chatContainerWidth = newWidth;
+  localStorage.setItem('chatContainerWidth', chatContainerWidth); 
+  if (newWidth < 550) {
+    hidePrompts();
+    showPromptButton.classList.add('hidden')
+  } else {
+    checkUserMessage();
+  }
+
+  if (newWidth < 200) { // Example threshold of 200px
+    scrollButton.classList.add('hidden');
+  } else {
+    scrollButton.classList.remove('hidden');
+  }
+
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+});
+
+
+
+  // Adjust divider behavior for smaller screens
+if (window.innerWidth < 480) {
+    historySideBar.style.width = `100%`;
+    chatContainer.style.width = `100%`;
+    promptContainer.style.width = '81%';
+    divider.style.visibility = 'hidden';
+}
+
 
 let md = new MarkdownIt({
   linkify: true,
@@ -38,16 +115,14 @@ let md = new MarkdownIt({
   
 
     const chat = model.startChat({
-      history: messages,
-      generationConfig:{
-        maxOutputTokens:10000
-      }
+      history: [],
     })
 // Create new chat and saving the previous one to history
 function startNewChat() {
+  showPrompts();
+  userInputBox.focus();
   // Clear the current chat messages
   chatMessages.innerHTML = `<div class="chatbot-message bot-message">Hello! How can I assist you today? What would you like to ask?" </div>`;
-
   // Create a new chat
   const newChat = {
       id: Date.now(),
@@ -61,18 +136,24 @@ function startNewChat() {
 
   // Save the updated chat history to local storage
   localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+  const index = chatHistory.length - 1; // Fix the index at creation time
 
   // Create a new chat tab in the history sidebar
   const historyItem = document.createElement("a");
   historyItem.href = "#";
   historyItem.innerText = `Chat ${chatHistory.length}`;
   historyItem.classList.add("history-item");
-  historyItem.addEventListener("click", () => loadChat(chatHistory.length - 1, historyItem));
+  historyItem.addEventListener("click", () => {
+    loadChat(index);
+    checkUserMessage();
+    userInputBox.focus();
+
+  });
   historyContainer.appendChild(historyItem);
 
   // Set the current chat index to the newly created chat
   currentChatIndex = chatHistory.length - 1;
-
+  
   // Change color for the active chat in the history tab
   updateActiveHistoryItem();
   // Store the current chat index
@@ -80,14 +161,13 @@ function startNewChat() {
 
   loadChat(currentChatIndex)
   userInputBox.classList.remove('disabled');
-  sendButton.classList.remove('disabled');
-
-  location.reload()
+  historySideBar.scrollTop = historySideBar.scrollHeight;
 }
 
 
 // Display the selected chat from history
 function loadChat(index) {
+
   currentChatIndex = index;
   chatMessages.innerHTML = ""; // Clear current chat
 
@@ -132,11 +212,13 @@ function updateActiveHistoryItem() {
       ev.preventDefault();
       // Disable inputs while bot is generating a response
       historyContainer.classList.add('disabled');
-      sendButton.classList.add('disabled');
       newChatButton.classList.add('disabled');
       clearHistoryButton.classList.add('disabled');
       userInputBox.classList.add('disabled');
-
+      sendButton.classList.add('disabled');
+      stopButton.classList.remove('hidden');
+      sendButton.classList.add('hidden');
+      hidePrompts();
 
       const userInput = promptInput.value;
       const selectedChat = chatHistory[currentChatIndex];
@@ -159,7 +241,7 @@ function updateActiveHistoryItem() {
       output.innerHTML += '<div class="generating-message">Dok is Thinking...</div>';
     
       try {
-          chatMessages.scrollTop = chatMessages.scrollHeight;
+          chatContainer.scrollTop = chatContainer.scrollHeight;
 
           const result = await chat.sendMessageStream(bot_prompt + 'You are to use the context i give you to answer the Patient Message. However, do not repeat any context that has no relation to the Patient Message.' + 'Context(not to be printed):' +'['+ messages + ']' + 'Patient Message(not to be printed):' + promptInput.value + 'give a proper and professional response. Only use * if you were to make a list.');
     
@@ -187,15 +269,21 @@ function updateActiveHistoryItem() {
         async function revealText(content) {
           let tempText = '';
           for (let i = 0; i < content.length; i++) {
+            if (stop) {
+              break
+            } else {
             tempText += content[i];
+            
             // Render Markdown using md and update display
             botResponseDiv.innerHTML = '<b>Dok: </b>' + md.render(tempText); 
-            await new Promise((resolve) => setTimeout(resolve, 30));
-          }
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }}
         }
         // Reveal bot response text
+
         await revealText(fullResponse);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+  
+        chatContainer.scrollTop = chatContainer.scrollHeight;
 
         output.innerHTML += `</div>`;
         const botMessageObj = { sender: "bot", message: fullResponse };
@@ -215,19 +303,25 @@ function updateActiveHistoryItem() {
     
       // Re-enable the input fields after the bot response
       historyContainer.classList.remove('disabled');
-      sendButton.classList.remove('disabled');
       newChatButton.classList.remove('disabled');
       clearHistoryButton.classList.remove('disabled'); 
       userInputBox.classList.remove('disabled');
+      stopButton.classList.add('hidden')
+      sendButton.classList.remove('hidden')
+      stop = false
 
-      //empty the input   
+      
+      refreshHistoryItem();
+      updateActiveHistoryItem();
+
       promptInput.value = ''; 
-      location.reload()
     };
 
 
 // Clear the chat history (using the clear history button)
 function clearChatHistory() {
+  hidePrompts();
+  showPromptButton.classList.add('hidden');
   // Clear chat messages from the chat message div
   chatMessages.innerHTML = `<div class="chatbot-message bot-message">No history available. Start a new chat!</div>`;
   
@@ -246,9 +340,33 @@ function clearChatHistory() {
   sendButton.classList.add('disabled');
   }
   
+// Renamed function that updates the chat history view dynamically
+function refreshHistoryItem() {
+  historyContainer.innerHTML = ''; // Clear the history container before updating
+  
+  chatHistory.forEach((chat, index) => {
+    const historyItem = document.createElement("a");
+    const firstUserMessage = chat.messages.find(msg => msg.sender === "user")?.message || '';
+    const cutMessage = firstUserMessage.length > 50 ? firstUserMessage.substring(0, 50) + '...' : firstUserMessage;
+
+    historyItem.innerHTML = `<strong>Chat ${index + 1}</strong>: ${cutMessage}`;
+    historyItem.href = "#";
+    historyItem.classList.add("history-item");
+
+    // Update the history item click event
+    historyItem.addEventListener("click", () => {
+      loadChat(index);
+      checkUserMessage();
+      userInputBox.focus();
+
+    });
+    historyContainer.appendChild(historyItem); // Append to the history container
+  });
+}
 
 // Load the Chat history
   function loadHistory() {
+    
     promptInput.focus(); // Set focus back to the input field
 
     // Check if chat history exists in local storage
@@ -261,22 +379,7 @@ function clearChatHistory() {
         startNewChat();
     } else{
     
-    // Display the existing chat history tabs in the history sidebar with Chat number: first question
-    chatHistory.forEach((chat, index) => {
-        const historyItem = document.createElement("a");
-        
-        historyItem.href = "#";
-        // Get the first user message if there is one
-        const firstUserMessage = chat.messages.find(msg => msg.sender === "user")?.message || '';
-                
-        // Cut the message to the first 50 characters and add '...' if the first user message is too long
-        const cutMessage = firstUserMessage.length > 50 ? firstUserMessage.substring(0, 50) + '...' : firstUserMessage;
-    
-        historyItem.innerHTML = `<strong>Chat ${index + 1}</strong>${cutMessage ? ': ' + cutMessage : ''}`; // Set the name of the chat history tab
-        historyItem.classList.add("history-item"); // Add the class to each tab
-        historyItem.addEventListener("click", () => loadChat(index, historyItem)); // Add an event listener so that each tab is clickable
-        historyContainer.appendChild(historyItem); // Add each history tab to the history container
-    });
+    refreshHistoryItem();
     const savedChatIndex = localStorage.getItem('currentChatIndex');
     
     if (savedChatIndex !== null) {
@@ -286,28 +389,139 @@ function clearChatHistory() {
     }
     }
 
-// Event listener for send button click
+function disableSend(){
+sendButton.classList.add('disabled');
+      // Event listener for send button click
 sendButton.addEventListener('click', (ev) => {
-  ev.preventDefault(); 
-  sendMessage(ev);
-});
-
+  ev.preventDefault();
+  sendMessage(ev); // Pass ev to sendMessage
+  });
+    
 // Event listener for Enter key press in the input field
 promptInput.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter') {
+    if (promptInput.value.trim() !== '') {
+
     ev.preventDefault(); 
     sendMessage(ev);
+  }}
+});
+}
+// Prevent empty prompts
+userInputBox.addEventListener('input', () => {
+  if (promptInput.value.trim() !== ''){
+    sendButton.classList.remove('disabled');
+  } else {
+    sendButton.classList.add('disabled');
+  }
+})
+
+stopButton.addEventListener('click', () => {
+  stop = true
+}
+);
+
+
+
+function isScrolledToBottom() {
+  return chatContainer.scrollTop + chatContainer.clientHeight >= chatContainer.scrollHeight - 100;
+}
+
+let checkScrollInterval
+
+function checkScroll() {
+checkScrollInterval = setInterval(() => {
+  if (isScrolledToBottom()) {
+    // Hide the scroll button if scrolled to the bottom
+    scrollButton.classList.add('hidden');
+  } else {
+    // Show the scroll button if not at the bottom
+    scrollButton.classList.remove('hidden');
+  }
+}, 100);
+}
+
+
+// Event listener for scroll events
+chatContainer.addEventListener('scroll', () => {
+  if (isScrolledToBottom()) {
+    scrollButton.classList.add('hidden'); // Hide button if at bottom
+  } else {
+    scrollButton.classList.remove('hidden'); // Show button if not at bottom
   }
 });
+
+scrollButton.addEventListener('click', () => {
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+);
+
 
 newChatButton.addEventListener("click", startNewChat);
 
 clearHistoryButton.addEventListener("click", clearChatHistory);
 
+function checkUserMessage(){
+  let hasUserMessage = false;
+
+  if (currentChatIndex !== -1 && chatHistory[currentChatIndex]) {
+    hasUserMessage = chatHistory[currentChatIndex].messages.some(
+      message => message.sender === "user"
+    );
+  }
+
+  // Show prompts if there are no user messages in the current chat
+  if (!hasUserMessage) {
+    showPrompts();
+  } else {
+    hidePrompts();
+  }
+}
+
+function hidePrompts(){
+  promptContainer.classList.add('invisible');
+  showPromptButton.classList.remove('hidden')
+};
+
+function showPrompts(){
+  promptContainer.classList.remove('invisible');
+  showPromptButton.classList.add('hidden')
+};
+
+function insertPrompts(prompt){
+  userInputBox.value = prompt.textContent;
+};
+
+closeButton.addEventListener('click', () => {
+  hidePrompts();
+});
+
+showPromptButton.addEventListener('click', () => {
+  showPrompts();
+});
+
+prompt1Button.addEventListener('click', () => {
+  insertPrompts(prompt1Button);
+  sendButton.classList.remove('disabled');
+  userInputBox.focus();
+});
+
+prompt2Button.addEventListener('click', () => {
+  insertPrompts(prompt2Button);
+  sendButton.classList.remove('disabled');
+  userInputBox.focus();
+});
+
+prompt3Button.addEventListener('click', () => {
+  insertPrompts(prompt3Button);
+  sendButton.classList.remove('disabled');
+  userInputBox.focus();
+});
 
   // Load history when the page is loaded
-
+checkScroll();
 loadHistory();
+disableSend();
   
   
   
